@@ -1,0 +1,74 @@
+--=============================================================
+-- Standalone Discord Webhook
+--=============================================================
+
+local HttpService = game:GetService("HttpService")
+local Players     = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local WEBHOOK_URL  = "https://discord.com/api/webhooks/1516125716511592453/KuyDgvee-icr5gB7VKygz4Ymn4ktEaB6ov0VRr9JLyT6ZgYscnxXNObuOcSMGYqs27gx"
+local WEBHOOK_NAME = "Mammoth Farmer"
+
+-- Find an available HTTP request function
+local RequestFn = nil
+do
+    local ok, fn = pcall(function()
+        if syn and type(syn.request) == "function" then return syn.request end
+        if type(http_request) == "function" then return http_request end
+        if type(request) == "function" then return request end
+        if http and type(http.request) == "function" then return http.request end
+        if fluxus and type(fluxus.request) == "function" then return fluxus.request end
+        return nil
+    end)
+    if ok then RequestFn = fn end
+end
+
+local LastSendAt = 0
+
+local function SendWebhook(embed)
+    local now = os.clock()
+    if now - LastSendAt < 2 then task.wait(2 - (now - LastSendAt)) end
+    LastSendAt = os.clock()
+
+    local body = HttpService:JSONEncode({ username = WEBHOOK_NAME, embeds = { embed } })
+
+    if RequestFn then
+        pcall(RequestFn, {
+            Url     = WEBHOOK_URL,
+            Method  = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body    = body,
+        })
+    else
+        pcall(function()
+            HttpService:PostAsync(WEBHOOK_URL, body, Enum.HttpContentType.ApplicationJson)
+        end)
+    end
+end
+
+local function Field(name, value, inline)
+    return { name = tostring(name), value = tostring(value):sub(1, 1024), inline = inline == true }
+end
+
+local function CreateEmbed(title, color)
+    return {
+        title     = title,
+        color     = color,
+        fields    = {},
+        footer    = { text = WEBHOOK_NAME },
+        timestamp = DateTime.now():ToIsoDate(),
+    }
+end
+
+--=============================================================
+-- Test: send a simple embed
+--=============================================================
+local embed = CreateEmbed("✅ Test", 0x00FF00)
+embed.fields = {
+    Field("Player", LocalPlayer and LocalPlayer.Name or "Unknown", true),
+    Field("UserId", tostring(LocalPlayer and LocalPlayer.UserId or "?"), true),
+    Field("JobId", tostring(game.JobId):sub(1, 20), false),
+}
+
+SendWebhook(embed)
+print("[Webhook] Test sent")
